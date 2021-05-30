@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+
+
+import sys
+
+
+class Node:
+    def __init__( self, name: str ):
+        self.distance_ = float("inf")
+        self.edges_ = []
+        self.name_ = name
+        self.predecessor_ = None
+
+class Edge:
+    def __init__( self, weight: int, neighbour: Node ):
+        self.weight_ = weight
+        self.neighbour_ = neighbour
+
+Graph = list[Node]
+
+
+def generateGraph() -> Node:
+    """
+    Build a graph and return the starting node
+
+    (A)--2-->--(B)--6-->--\
+       \          \        \
+        \     \-<--1        \
+         5     \             \
+          \-->--(C)--3--->---(D)
+    """
+    a = Node("a")
+    b = Node("b")
+    c = Node("c")
+    d = Node("d")
+
+    a.edges_.append( Edge( 2, b ) )
+    a.edges_.append( Edge( 5, c ) )
+    b.edges_.append( Edge( 1, c ) )
+    b.edges_.append( Edge( 6, d ) )
+    c.edges_.append( Edge( 3, d ) )
+    
+    return [ a, d, c , b ]
+    
+
+# def topologicalSort( source: Node ) -> SortedGraph:
+
+#     def performSort( sortedGraph: SortedGraph, node: Node ):
+#         if node not in sortedGraph:
+#             for edge in node.edges_:
+#                 performSort( sortedGraph, edge.neighbour_ )
+#             sortedGraph.append( node )
+
+#     sortedGraph = []
+#     performSort( sortedGraph, source )
+#     sortedGraph.reverse()
+#     return sortedGraph
+
+
+def extractMin(graph: Graph) -> Node:
+    if len(graph) == 0:
+        return None
+    minimum = graph[0]
+    for node in graph[1:]:
+        if node.distance_ < minimum.distance_:
+            minimum = node
+    return minimum
+
+    
+def dijkstra( graph: Graph ) -> None:
+    """Assumes the first node in graph to be the source"""
+    
+    def initialise( graph: Graph ):
+        graph[0].distance_ = 0
+
+    def shorterPath( node, edge ):
+        return edge.neighbour_.distance_ > node.distance_ + edge.weight_
+
+    def relax( node, edge ):
+        edge.neighbour_.distance_ = node.distance_ + edge.weight_
+        edge.neighbour_.predecessor_ = node
+
+    def printGraph( graph: Graph ):
+        for node in graph:
+            print( "Node {} has distance: {}".format( node.name_, node.distance_ ) )
+
+    unvisited = graph.copy()
+    initialise( unvisited )
+    node = extractMin( unvisited )
+    while node is not None:
+        for edge in node.edges_:
+            if shorterPath( node, edge ):
+                relax( node, edge )
+        unvisited.remove( node )
+        node = extractMin( unvisited )
+        
+    # for node in sortedGraph:
+    #     for edge in node.edges_:
+    #         if shorterPath( node, edge ):
+    #             relax( node, edge )
+    printGraph( graph )
+    
+        
+def main():
+    graph = generateGraph()
+    # sortedGraph = topologicalSort( nodeA )
+    dijkstra( graph )
+
+    
+if __name__ == '__main__':
+    sys.exit(main())
