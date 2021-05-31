@@ -1,20 +1,31 @@
+{-
+@file
+
+Solve a sudoku board, or notify if the board is unsolvable
+
+@author Hamish Morgan
+@date   01/06/2021
+-}
+
+
 import Data.List
+
 
 type Board = [[Int]]
 type Box = (Int, Int)
 
+
 solveSudoku :: Board -> Maybe Board
 solveSudoku board 
-  | nextOpenSquare board == (-1,-1)   = Just board
-  | otherwise = go board (y,x)
+  | nextOpenSquare board == (-1,-1) = Just board
+  | otherwise                       = go board $ nextOpenSquare board
     where
-      (y,x) = nextOpenSquare board
       go :: Board -> Box -> Maybe Board
-      go board' (b,a)
-        | canIncrement board' (b,a) = do
-            let board'' = solveSudoku $ validIncrement board' (b,a)
+      go board' (y,x)
+        | canIncrement board' (y,x) = do
+            let board'' = solveSudoku $ validIncrement board' (y,x)
             if board'' == Nothing
-              then go (validIncrement board' (b,a)) (b,a)
+              then go (validIncrement board' (y,x)) (y,x)
               else board''
         | otherwise = Nothing
       
@@ -99,6 +110,7 @@ printBoard :: Show a => [[a]] -> IO ()
 printBoard [] = pure ()
 printBoard (xs:xss) = putStrLn (show xs) >> printBoard xss
 
+
 printSolution :: Maybe Board -> IO ()
 printSolution Nothing  = putStrLn "failure :("
 printSolution (Just a) = printBoard a
@@ -118,17 +130,17 @@ main = printSolution $ solveSudoku trishBoard
 --                      [9,0,0,0,0,7,0,9,0],
 --                      [7,0,6,0,1,4,0,0,0],
 --                      [9,3,0,0,0,0,0,0,0] ]
-blankBoard :: Board
-blankBoard  = [ [0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0] ]
 
+-- blankBoard :: Board
+-- blankBoard  = [ [0,0,0,0,0,0,0,0,0],
+--                 [0,0,0,0,0,0,0,0,0],
+--                 [0,0,0,0,0,0,0,0,0],
+--                 [0,0,0,0,0,0,0,0,0],
+--                 [0,0,0,0,0,0,0,0,0],
+--                 [0,0,0,0,0,0,0,0,0],
+--                 [0,0,0,0,0,0,0,0,0],
+--                 [0,0,0,0,0,0,0,0,0],
+--                 [0,0,0,0,0,0,0,0,0] ]
 
 trishBoard :: Board
 trishBoard  = [ [7,0,0,0,0,0,0,0,0],
