@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+
+
+source $( type -p bash-std )
+
+
+function prologue
+{
+    cat <<EOF 
+Take youtube URLs on stdin, download videos and optionally crop.
+EOF
+}
+
+function options
+{
+    cat <<EOF
+--crop,-c=[<w:h:x:y>]; Crop video with given parameters (colon-separated!)
+--parallel,-p; Do things in parallel for multiple videos
+EOF
+}
+
+# function epilogue
+# {
+#     cat <<EOF
+# EOF
+# }
+
+
+bash-std-application-init "$@" < <( options ) || die "failed"
+
+
+function download_videos
+{
+    # Download videos (from URLs on stdin) and print filepaths of saved videos to stdout
+
+    function download_video
+    {
+        function rename_video
+        {
+            function new_name
+            {
+                sed --expression 's# #_#g' \
+                    --expression 's#,#_#g' \
+                    <<< "$video"
+            }
+
+            local video="$1"
+            mv "$video" "$(new_name)"
+            new_name
+        }
+        export -f rename_video
+        
+        url="$1"
+        youtube-dl "$url" --exec 'rename_video {}' | tail -n1
+    }
+
+    say "${fmt_cyan}${fmt_dim}Downloading videos...${fmt_reset}"
+    if (( options_parallel )); then
+        export -f download_video
+        parallel --bar "download_video {}"
+    else
+        while read -r url; do
+            download_video "$url"
+        done
+    fi 
+}
+
+
+function extract_frames
+{
+    # Extract the first frame from each video file on stdin, print paths of video and
+    # frame to stdout (comma-separated)
+
+    function extract_frame
+    {
+        function output_path
+        {
+            sed 's#.*#/tmp/&.1st_frame.png#' <<< "$filepath"
+        }
+        
+        local filepath="$1"
+        ffmpeg -i "$filepath"            \
+               -y                        \
+               -loglevel quiet           \
+               -vf                       \
+               select='between(n\,1\,1)' \
+               -vsync 0                  \
+               --                        \
+               "$(output_path)"          \
+               1>&2
+        echo "$filepath,$(output_path)"
+    }
+    
+    say "${fmt_cyan}${fmt_dim}Extracting frames...${fmt_reset}"
+    if (( options_parallel )); then
+        export -f extract_frame
+        parallel --bar "extract_frame {}"
+    else
+        while read -r video_path; do
+            extract_frame "$video_path"
+        done
+    fi 
+}
+
+
+function append_dimensions
+{
+    # From filepaths on stdin, get required dimensions of image to crop
+
+    function get_dimensions
+    {
+        # Open GIMP and prompt user to enter width, height, top left corner
+
+        function open_frame_in_gimp
+        {
+            gimp "$frame" &
+        }
+
+        function prompt_user
+        {
+            function template
+            {
+                cat <<EOF
+Enter dimensions of rectangle to crop
+width            : 
+height           : 
+top left corner x: 
+top left corner y: 
+EOF
+            }
+
+            template > "$dims_file" 
+            nvim "$dims_file"
+        }
+
+        function dimensions
+        {
+            tail --lines 4 "$dims_file" |
+                cut --delimiter ':' \
+                    --fields 1      \
+                    --complement    |
+                tr --delete ' ' |
+                tr '\n' ':' |
+                head --bytes -1
+        }
+        
+        local frame="$1"
+        local dims_file="/tmp/crop-dimensions"
+
+        cat > /dev/null
+        open_frame_in_gimp
+        prompt_user
+        echo "$video,$first_frame,$(dimensions)"
+    }
+    
+    while IFS="," read -r video first_frame; do
+        get_dimensions "$first_frame"
+    done
+}
+
+
+function crop_videos
+{
+    function crop_video
+    {
+        function video
+        {
+            cut -d, -f1 <<< "$vid_frame_crop"
+        }
+
+        function crop_dimensions
+        {
+            cut -d, -f3 <<< "$vid_frame_crop"
+        }
+
+        function output_video
+        {
+            video | sed 's#\.mp4$#.cropped.mp4#'
+        }
+        
+        local vid_frame_crop="$1"
+        ffmpeg -nostdin           \
+               -loglevel fatal    \
+               -i "$(video)"        \
+               -filter:v          \
+               "$(crop_dimensions)" \
+               "$(output_video)"
+    }
+
+    if (( options_parallel )); then
+        export -f crop_video
+        parallel --bar "crop_video {}"
+    else
+        while read -r vid_frame_crop; do
+            crop_video "$vid_frame_crop"
+        done
+    fi
+}
+
+
+mapfile vids_frames < <(download_videos | extract_frames)
+mapfile vids_frames_crops < <(append_dimensions <<< "${vids_frames[@]}")
+crop_videos <<< "${vids_frames_crops[@]}"
+
+# download_videos       |
+#     extract_frames    |
+#     append_dimensions |
+#     crop_videos
