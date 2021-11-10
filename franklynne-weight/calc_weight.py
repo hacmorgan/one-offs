@@ -19,7 +19,6 @@ collected, and provide a better estimate.
 
 import csv
 import datetime
-import math
 import sys
 
 import matplotlib.dates as mdates
