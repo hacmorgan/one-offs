@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+
+
+"""
+@file
+
+Compute whether there is a solution to the train game for a particular 4-digit train
+carriage identifier number.
+
+@author  Hamish Morgan
+@date    26/11/2021
+@license BSD
+"""
+
+
+import argparse
+import itertools
+import sys
+from typing import Optional, Iterator, List
+
+
+def sanitise_id(carriage_id: str) -> None:
+    """
+    Check that a valid carriage ID was provided.
+
+    @param[in] carriage_id Carriage ID
+    """
+    if len(carriage_id) != 4 or not carriage_id.isnumeric():
+        raise ValueError(f"Carriage ID must be a 4 digit number, got: {carriage_id}")
+
+
+def permutations(digits: List[str], operators: List[str]) -> Iterator[str]:
+    """
+    Find all permutations of digits and mathematical operators.
+
+    Creates duplicates where terms are commutative or associative, but like, who cares.
+
+    @param[in] digits Digits in carriage ID
+    @param[in] operators Mathematical operators that can be applied.
+    @return Python expressions to be evaluated.
+    """
+    digit_permutations = itertools.permutations(digits)
+    operator_permutations = itertools.product(operators, repeat=3)
+    for digit_permutation in digit_permutations:
+        for operator_permutation in operator_permutations:
+            for prefix in ("", "-"):  # handle leading negative
+                bumpy_expression = zip(
+                    (prefix,) + operator_permutation, digit_permutation
+                )
+                yield "".join(
+                    value for sublist in bumpy_expression for value in sublist
+                )
+
+
+def solve_train_game(
+    digits: List[str], operators: List[str], target: int
+) -> Optional[str]:
+    """
+    Check if @a carriage_id has a solution to the train game.
+
+    @param[in] digits Digits in carriage ID
+    @param[in] operators Mathematical operators that can be applied.
+    @return The solution if it exists, None otherwise.
+    """
+    for permutation in permutations(digits, operators):
+        try:
+            if eval(permutation) == target:
+                return permutation
+        except ZeroDivisionError:
+            pass
+    return None
+
+
+def get_args() -> argparse.Namespace:
+    """
+    Define and parse command line arguments.
+
+    @return Arguments.
+    """
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--carriage-id",
+        "--id",
+        "--number",
+        type=str,
+        required=True,
+        help="4 digit number (like the whole point of the game).",
+    )
+    parser.add_argument(
+        "--permitted-operators",
+        "--operators",
+        type=str,
+        default="+,-,/,*,**",
+        help="Permitted mathematical operators (comma-separated).",
+    )
+    parser.add_argument(
+        "--target",
+        type=int,
+        default=10,
+        help="Value we are trying to reach with some permutation of digits and "
+        "operations.",
+    )
+    return parser.parse_args()
+
+
+def main(args: argparse.Namespace) -> int:
+    """
+    Main routine.
+
+    @param[in] args Command line arguments.
+    @return Exit status.
+    """
+    sanitise_id(args.carriage_id)
+    solution = solve_train_game(
+        digits=list(args.carriage_id),
+        operators=args.permitted_operators.split(","),
+        target=args.target,
+    )
+    if solution is not None:
+        print(
+            "Solution for {}: {}={}. (Permitted operations: {})".format(
+                args.carriage_id, solution, args.target, args.permitted_operators
+            )
+        )
+        return 0
+    print(
+        "No solution found for {}. (Permitted operations: {})".format(
+            args.carriage_id, args.permitted_operators
+        )
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(get_args()))
