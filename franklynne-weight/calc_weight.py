@@ -9,7 +9,7 @@ Fit logarithmic function to samples of Frank's weight over time
 This script should be general enough to be rerun without modification when new data is
 collected, and provide a better estimate.
 
-
+Weights file can be specified as the 1st positional argument, default is used otherwise.
 
 @author  Hamish Morgan
 @date    17/10/2021
@@ -25,6 +25,9 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize
+
+
+DEFAULT_WEIGHTS_FILE = "weights.csv"
 
 
 def timestamp_from_date(date: str) -> float:
@@ -94,7 +97,11 @@ def plot_results(popt: np.ndarray, x: np.ndarray, y: np.ndarray) -> None:
 
 
 def main() -> int:
-    x, y = read_data("weights.csv")
+    if len(sys.argv) > 1:
+        weights_file = sys.argv[1]
+    else:
+        weights_file = DEFAULT_WEIGHTS_FILE
+    x, y = read_data(weights_file)
     optimal_params = fit_to_data(x, y)
     plot_results(optimal_params, x, y)
     return 0
